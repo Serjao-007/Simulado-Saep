@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="login.css">
+</head>
+
+<body>
+
+</html>
+<div class="container" id="login-container">
+    <h2>Login do Sistema</h2>
+    <input type="text" id="user" placeholder="Usuário">
+    <input type="password" id="pass" placeholder="Senha">
+    <button onclick="autenticar()">Entrar</button>
+    <p id="mensagemErro"></p>
+</div>
+<script>
+    const API = "http://localhost:3000/api";
+    async function autenticar() {
+        const login = document.getElementById('user').value;
+        const senha = document.getElementById('pass').value;
+        const msgErro = document.getElementById('mensagemErro');
+
+        if (!login || !senha) {
+            msgErro.textContent = "Preencha todos os campos!";
+            return;
+        }
+        try {
+            const response = await fetch(`${API}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ login, senha })
+            });
+            const data = await response.json();
+            if (data.sucesso) {
+                localStorage.setItem('usuarioLogado', JSON.stringify(data.usuario));
+                alert(`Bem-vindo, ${data.usuario.nome}`);
+                window.location.href = 'index.html';
+            } else {
+                msgErro.textContent = data.mensagem || "Usuário ou senha inválidos.";
+            }
+        } catch (error) {
+            msgErro.textContent = "Erro ao conectar com o servidor.";
+        }
+    }
+</script>
+</body>
+
+</html>

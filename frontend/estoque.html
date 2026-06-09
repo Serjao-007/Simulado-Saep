@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Estoque</title>
+
+    <style>
+        :root {
+            --bg-global: #f8fafc;
+            --bg-card: #ffffff;
+            --texto-principal: #0f172a;
+            --texto-mutado: #64748b;
+            --borda: #e2e8f0;
+            --primary: #4f46e5;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 24px;
+            background-image: url(Fundo3.jpg);
+            background-size: cover;
+            background-attachment: fixed;
+        }
+
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #111827;
+            padding: 16px 32px;
+            color: white;
+            border-radius: 12px;
+        }
+
+        .nav a {
+            color: white;
+            text-decoration: none;
+            margin-left: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 32px;
+            border-radius: 16px;
+            margin-top: 24px;
+        }
+
+        select,
+        input,
+        button {
+            width: 100%;
+            max-width: 400px;
+            padding: 12px;
+            margin-top: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background: #28a745;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+
+        th {
+            background: #f1f5f9;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="nav">
+        <div><span id="user"></span></div>
+
+        <div>
+            <a href="index.html">Produtos</a>
+            <a href="estoque.html"><b>Gestão de Estoque</b></a>
+            <a href="#" onclick="fazerLogout()">Sair</a>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <h2>Movimentação de Estoque</h2>
+
+        <label>Selecione o Produto:</label>
+        <select id="selectProduto"></select>
+
+        <label>Tipo de Movimentação:</label>
+        <select id="tipoMovimentacao">
+            <option value="entrada">Entrada</option>
+            <option value="saida">Saída</option>
+        </select>
+
+        <label>Quantidade:</label>
+        <input type="number" id="quantidade" min="1">
+
+        <label>Data da Movimentação:</label>
+        <input type="date" id="dataMovimentacao">
+
+        <button onclick="processarMovimentacao()">
+            Gravar Movimentação
+        </button>
+
+        <hr>
+
+        <h3>Produtos em Estoque</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Produto</th>
+                    <th>Estoque Atual</th>
+                    <th>Estoque Mínimo</th>
+                </tr>
+            </thead>
+
+            <tbody id="listaEstoque"></tbody>
+        </table>
+
+        <h3>Histórico de Movimentações</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Produto</th>
+                    <th>Tipo</th>
+                    <th>Quantidade</th>
+                    <th>Data</th>
+                </tr>
+            </thead>
+
+            <tbody id="historico"></tbody>
+        </table>
+
+    </div>
+
+    <script>
+
+        const API = "http://localhost:3000/api";
+
+        let listaProdutosGlobais = [];
+
+        const usuarioDados = localStorage.getItem("usuarioLogado");
+
+        if (!usuarioDados) {
+            window.location.href = "login.html";
+        } else {
+            document.getElementById("user").textContent =
+                `Usuário: ${JSON.parse(usuarioDados).nome}`;
+        }
+
+        function fazerLogout() {
+            localStorage.removeItem("usuarioLogado");
+            window.location.href = "login.html";
+        }
+
+        function ordenarPorBubbleSort(array) {
+
+            let n = array.length;
+
+            for (let i = 0; i < n - 1; i++) {
+
+                for (let j = 0; j < n - i - 1; j++) {
+
+                    if (array[j].nome.toLowerCase() >
+                        array[j + 1].nome.toLowerCase()) {
+
+                        let temp = array[j];
+
+                        array[j] = array[j + 1];
+
+                        array[j + 1] = temp;
+                    }
+                }
+            }
+
+            return array;
+        }
+
+        async function carregarEstoque() {
+
+            try {
+
+                const res = await fetch(`${API}/produtos`);
+
+                const produtos = await res.json();
+
+                listaProdutosGlobais = produtos;
+
+                const produtosOrdenados =
+                    ordenarPorBubbleSort(produtos);
+
+                document.getElementById("listaEstoque").innerHTML =
+                    produtosOrdenados.map(p => `
+                        <tr>
+                            <td>${p.nome}</td>
+                            <td>${p.estoque_atual}</td>
+                            <td>${p.estoque_minimo}</td>
+                        </tr>
+                    `).join("");
+
+                document.getElementById("selectProduto").innerHTML =
+                    produtosOrdenados.map(p => `
+                        <option value="${p.id}">
+                            ${p.nome} (Atual: ${p.estoque_atual})
+                        </option>
+                    `).join("");
+
+            } catch (error) {
+
+                alert("Erro ao carregar estoque.");
+            }
+        }
+
+        function mostrarHistorico() {
+
+            let historico =
+                JSON.parse(localStorage.getItem("historico")) || [];
+
+            document.getElementById("historico").innerHTML =
+                historico.map(h => `
+                    <tr>
+                        <td>${h.produto}</td>
+                        <td>${h.tipo}</td>
+                        <td>${h.quantidade}</td>
+                        <td>${h.data}</td>
+                    </tr>
+                `).join("");
+        }
+
+        async function processarMovimentacao() {
+
+            const produtoId =
+                document.getElementById("selectProduto").value;
+
+            const tipo =
+                document.getElementById("tipoMovimentacao").value;
+
+            const quantidade =
+                Number(document.getElementById("quantidade").value);
+
+            const data =
+                document.getElementById("dataMovimentacao").value;
+
+            if (!produtoId || !quantidade || quantidade <= 0 || !data) {
+
+                alert("Preencha tudo corretamente!");
+
+                return;
+            }
+
+            const produto =
+                listaProdutosGlobais.find(p => p.id == produtoId);
+
+            let novoEstoque = produto.estoque_atual;
+
+            if (tipo === "entrada") {
+
+                novoEstoque += quantidade;
+
+            } else {
+
+                novoEstoque -= quantidade;
+
+                if (novoEstoque < 0) {
+
+                    alert("Sem estoque suficiente!");
+
+                    return;
+                }
+            }
+
+            try {
+
+                await fetch(`${API}/produtos/${produtoId}`, {
+
+                    method: "PUT",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        nome: produto.nome,
+
+                        tamanho: produto.tamanho,
+
+                        estoque_atual: novoEstoque,
+
+                        estoque_minimo: produto.estoque_minimo
+                    })
+                });
+
+                let historico =
+                    JSON.parse(localStorage.getItem("historico")) || [];
+
+                historico.push({
+
+                    produto: produto.nome,
+
+                    tipo: tipo,
+
+                    quantidade: quantidade,
+
+                    data: data
+                });
+
+                localStorage.setItem(
+                    "historico",
+                    JSON.stringify(historico)
+                );
+
+                mostrarHistorico();
+
+                alert("Movimentação registrada!");
+
+                document.getElementById("quantidade").value = "";
+
+                carregarEstoque();
+
+            } catch (error) {
+
+                alert("Erro ao salvar movimentação.");
+            }
+        }
+
+        document.getElementById("dataMovimentacao").valueAsDate =
+            new Date();
+
+        carregarEstoque();
+        mostrarHistorico();
+    </script>
+
+</body>
+
+</html>

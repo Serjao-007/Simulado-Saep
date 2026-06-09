@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro de Produtos</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="nav">
+        <div><span id="user"></span></div>
+        <div>
+            <a href="index.html"><b>Produtos</b></a>
+            <a href="estoque.html">Gestão de Estoque</a>
+            <a href="#" onclick="fazerLogout()" style="color: #ff6b6b; font-weight: bold;">Sair</a>
+        </div>
+    </div>
+    <div class="container">
+        <h2>Gestão de Produtos</h2>
+        <input type="hidden" id="produtoId"> <input type="text" id="nome" placeholder="Nome do Produto">
+        <input type="text" id="tam" placeholder="Tamanho">
+        <input type="number" id="qtd" placeholder="Quantidade em Estoque">
+        <input type="number" id="min" placeholder="Estoque Mínimo">
+        <button id="btnSalvar" onclick="salvar()">Salvar Produto</button>
+        <button id="btnCancelar" onclick="limparFormulario()" style="display:none;">Cancelar</button>
+        <hr>
+        <h3>Filtrar Produtos</h3>
+        <input type="text" id="campoBusca" placeholder="Buscar por nome...">
+        <button onclick="buscarProdutos()">Buscar</button>
+        <button onclick="carregar()">Limpar Filtro</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Tamanho</th>
+                    <th>Estoque Atual</th>
+                    <th>Estoque Mínimo</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="lista"></tbody>
+        </table>
+    </div>
+
+    <script>
+        const API = "http://localhost:3000/api";
+        let todosProdutos = [];
+        const usuarioDados = localStorage.getItem("usuarioLogado");
+        if (!usuarioDados) {
+            window.location.href = 'login.html';
+        } else {
+            const usuario = JSON.parse(usuarioDados);
+            document.getElementById("user").textContent = `Usuário: ${usuario.nome}`;
+        }
+        function fazerLogout() {
+            localStorage.removeItem("usuarioLogado");
+            window.location.href = 'login.html';
+        }
+        async function carregar() {
+            try {
+                const res = await fetch(`${API}/produtos`);
+                todosProdutos = await res.json();
+                renderizarTabela(todosProdutos);
+            } catch (error) {
+                alert("Erro ao carregar produtos do servidor.");
+            }
+        }
+        function renderizarTabela(dados) {
+            const lista = document.getElementById("lista");
+            lista.innerHTML = dados.map(p => `
+            <tr>
+                <td>${p.nome}</td>
+                <td>${p.tamanho || '-'}</td>
+                <td>${p.estoque_atual}</td>
+                <td>${p.estoque_minimo}</td>
+                <td>
+                    <button class="btn-editar" onclick="prepararEdicao(${JSON.stringify(p).replace(/"/g, '&quot;')})">Editar</button>
+                    <button class="btn-excluir" onclick="excluir(${p.id})">Excluir</button>
+                </td>
+            </tr>
+        `).join("");
+        }
+        function buscarProdutos() {
+            const termo = document.getElementById("campoBusca").value.toLowerCase();
+            const filtrados = todosProdutos.filter(p => p.nome.toLowerCase().includes(termo));
+            renderizarTabela(filtrados);
+        }
+        async function salvar() {
+            const id = document.getElementById("produtoId").value;
+            const nome = document.getElementById("nome").value.trim();
+            const tamanho = document.getElementById("tam").value.trim();
+            const estoque_atual = document.getElementById("qtd").value;
+            const column_min = document.getElementById("min").value;
+            if (!nome || !estoque_atual || !column_min) {
+                alert("Preencha todos os campos obrigatórios (Nome, Estoque e Mínimo)!");
+                return;
+            }
+            const produtoData = { nome, tamanho, estoque_atual: Number(estoque_atual), estoque_minimo: Number(column_min) };
+            try {
+                let url = `${API}/produtos`;
+                let metodo = "POST";
+                if (id) {
+                    url = `${API}/produtos/${id}`;
+                    metodo = "PUT";
+                }
+                await fetch(url, {
+                    method: metodo,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(produtoData)
+                });
+                limparFormulario();
+                carregar();
+            } catch (error) {
+                alert("Erro ao salvar o produto.");
+            }
+        }
+        function prepararEdicao(p) {
+            document.getElementById("produtoId").value = p.id;
+            document.getElementById("nome").value = p.nome;
+            document.getElementById("tam").value = p.tamanho || '';
+            document.getElementById("qtd").value = p.estoque_atual;
+            document.getElementById("min").value = p.estoque_minimo;
+            document.getElementById("btnSalvar").textContent = "Atualizar Produto";
+            document.getElementById("btnCancelar").style.display = "inline-block";
+        }
+        function limparFormulario() {
+            document.getElementById("produtoId").value = "";
+            document.getElementById("nome").value = "";
+            document.getElementById("tam").value = "";
+            document.getElementById("qtd").value = "";
+            document.getElementById("min").value = "";
+            document.getElementById("btnSalvar").textContent = "Salvar Produto";
+            document.getElementById("btnCancelar").style.display = "none";
+        }
+        async function excluir(id) {
+            if (confirm("Tem certeza que deseja excluir este produto?")) {
+                await fetch(`${API}/produtos/${id}`, { method: "DELETE" });
+                carregar();
+            }
+        }
+        carregar();
+    </script>
+</body>
+
+</html>
